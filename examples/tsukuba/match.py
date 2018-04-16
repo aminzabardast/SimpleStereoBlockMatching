@@ -12,9 +12,9 @@ imgR = np.dot(imgR[..., :], [.333, .333, .334])
 disp = np.ndarray(shape=imgL.shape)
 
 # Running the algorithm
-matcher = BlockMatcher(leftImage=imgL, rightImage=imgR)
+matcher = BlockMatcher(left_image=imgL, right_image=imgR)
 matcher.compute()
 
 # Saving the image
-disp[:,:] = matcher.disparity()/15
+disp[:, :] = matcher.disparity()/15
 plt.imsave('result.png', disp)
