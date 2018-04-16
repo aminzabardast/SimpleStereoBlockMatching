@@ -61,7 +61,7 @@ class BlockMatcher:
             self._compute_for_single_channel_image()
         # Not Gray Scale
         else:
-            raise ('The image is not grayscale.')
+            raise TypeError('The image is not Gray Scale.')
 
 
     def disparity(self):
