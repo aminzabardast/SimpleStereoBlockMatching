@@ -16,8 +16,8 @@ class BlockMatcher:
         # Initial disparity
         self._disp = np.zeros(shape=self._leftImage.shape)
 
-    def compute(self):
-        """Main Simple Block Matching Algorithm / Input images should be rectified"""
+    def _compute_for_single_channel_image(self):
+        """Algorithm for single channel images"""
         # Left Image Dimensions
         rows, columns = self._leftImage.shape
 
@@ -39,20 +39,30 @@ class BlockMatcher:
                     # Extracting right block
                     rightBlock = self._rightImage[i - margin:i + margin + 1, k - margin:k + margin + 1]
                     # Calculating Error
-                    error = self._MSE(leftBlock, rightBlock)
+                    error = self._mse(leftBlock, rightBlock)
                     # Keeping the disparity with smallest error
                     if error < minError:
                         minError = error
                         self._disp[i, j] = j - k
         return True
 
-    def _MSE(self, leftBlock, rightBlock):
+    def _mse(self, leftBlock, rightBlock):
         """Calculating 'Mean Squared Error"""
         return np.sum(np.power(leftBlock - rightBlock, 2)) / self._blockSize ** 2
 
-    def _MAE(self, leftBlock, rightBlock):
+    def _mae(self, leftBlock, rightBlock):
         """Calculating 'Mean Absolute Error'"""
         return np.sum(np.abs(leftBlock - rightBlock)) / self._blockSize ** 2
+
+    def compute(self):
+        """Main Simple Block Matching Algorithm / Input images should be rectified"""
+        # Gray Scale Images
+        if len(self._leftImage.shape) == 2:
+            self._compute_for_single_channel_image()
+        # Not Gray Scale
+        else:
+            raise ('The image is not grayscale.')
+
 
     def disparity(self):
         """Returning Disparity"""
