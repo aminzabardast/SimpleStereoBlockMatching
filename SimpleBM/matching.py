@@ -17,7 +17,7 @@ class BlockMatcher:
         self._disp = np.zeros(shape=self._leftImage.shape)
 
     def compute(self):
-        """Main Simple Block Matching Algorithm"""
+        """Main Simple Block Matching Algorithm / Input images should be rectified"""
         # Left Image Dimensions
         rows, columns = self._leftImage.shape
 
