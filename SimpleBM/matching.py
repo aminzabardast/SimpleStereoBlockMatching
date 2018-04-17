@@ -15,7 +15,7 @@ class BlockMatcher:
         self._disparityRange = disparity_range
 
         # Initial disparity
-        self._disp = np.zeros(shape=self._leftImage.shape)
+        self._disparity_map = np.zeros(shape=self._leftImage.shape)
 
     def _compute_for_single_channel_image(self):
         """Algorithm for single channel images"""
@@ -45,9 +45,9 @@ class BlockMatcher:
                 min_idx = int(np.where(errors == errors.min())[0][0])
                 # Interpolating the result with a parabola to gain sub-pixel accuracy.
                 if min_idx == 0 or min_idx == len(errors)-1:
-                    self._disp[i, j] = min_idx
+                    self._disparity_map[i, j] = min_idx
                 else:
-                    self._disp[i, j] = min_idx + 0.5 * (errors[min_idx-1]-errors[min_idx+1]) / \
+                    self._disparity_map[i, j] = min_idx + 0.5 * (errors[min_idx-1]-errors[min_idx+1]) / \
                         (errors[min_idx-1]-2*errors[min_idx]+errors[min_idx+1])
         return True
 
@@ -70,4 +70,4 @@ class BlockMatcher:
 
     def disparity(self):
         """Returning Disparity"""
-        return self._disp
+        return self._disparity_map
