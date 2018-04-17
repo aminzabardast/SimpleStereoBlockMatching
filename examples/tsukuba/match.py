@@ -9,12 +9,12 @@ imgR = plt.imread('images/right.ppm')
 imgR = np.dot(imgR[..., :], [.333, .333, .334])
 
 # Disparity Template
-disp = np.ndarray(shape=imgL.shape)
+disparity_map = np.ndarray(shape=imgL.shape)
 
 # Running the algorithm
 matcher = BlockMatcher(left_image=imgL, right_image=imgR)
 matcher.compute()
 
 # Saving the image
-disp[:, :] = matcher.disparity()/15
-plt.imsave('result.png', disp)
+disparity_map[:, :] = matcher.disparity()/15
+plt.imsave('result.png', disparity_map)
