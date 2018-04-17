@@ -30,8 +30,8 @@ class BlockMatcher:
             for j in range(margin, columns - margin):
                 # Extracting left block
                 left_block = self._leftImage[i - margin:i + margin + 1, j - margin:j + margin + 1]
-                # Initial Error
-                min_error = np.inf
+                # Error Array
+                errors = np.ndarray(shape=(0,))
                 # End of search in the row, beginning from j
                 search_end = margin - 1 if j - self._disparityRange < margin - 1 else j - self._disparityRange
                 # Searching for match in the right image
@@ -40,11 +40,15 @@ class BlockMatcher:
                     # Extracting right block
                     right_block = self._rightImage[i - margin:i + margin + 1, k - margin:k + margin + 1]
                     # Calculating Error
-                    error = self._mse(left_block, right_block)
-                    # Keeping the disparity with smallest error
-                    if error < min_error:
-                        min_error = error
-                        self._disp[i, j] = j - k
+                    errors = np.append(errors, self._mse(left_block, right_block))
+                # Minimum Index
+                min_idx = int(np.where(errors == errors.min())[0][0])
+                # Interpolating the result with a parabola to gain sub-pixel accuracy.
+                if min_idx == 0 or min_idx == len(errors)-1:
+                    self._disp[i, j] = min_idx
+                else:
+                    self._disp[i, j] = min_idx + 0.5 * (errors[min_idx-1]-errors[min_idx+1]) / \
+                        (errors[min_idx-1]-2*errors[min_idx]+errors[min_idx+1])
         return True
 
     def _mse(self, left_block, right_block):
