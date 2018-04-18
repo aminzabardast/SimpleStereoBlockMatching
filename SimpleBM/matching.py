@@ -16,7 +16,9 @@ class BlockMatcher:
 
         # Initial disparity
         self._disparity_map = np.zeros(shape=self._left_scale_space[0].shape)
-        self._create_pyramids(scale_space)
+
+        # Initializing scale space
+        self._create_scale_space(scale_space)
 
     def _compute_for_single_channel_image(self):
         """Algorithm for single channel images"""
@@ -60,7 +62,8 @@ class BlockMatcher:
         """Calculating 'Mean Absolute Error'"""
         return np.sum(np.abs(left_block - right_block)) / self._block_size ** 2
 
-    def _create_pyramids(self, n):
+    def _create_scale_space(self, n):
+        """Creating Scale Space"""
         for layer in range(1, n):
             self._left_scale_space.append(self._left_scale_space[layer-1][0::2, 0::2])
             self._right_scale_space.append(self._right_scale_space[layer-1][0::2, 0::2])
