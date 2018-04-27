@@ -19,7 +19,7 @@ class BlockMatcher:
         # Disparity
         self._disparity_map = np.zeros(shape=self._left_image.shape)
 
-    def _compute_for_single_channel_image(self):
+    def _block_matching_for_single_chanel_image(self):
         """Algorithm for single channel images"""
 
         # Handling inputs and their defaults:
@@ -96,7 +96,7 @@ class BlockMatcher:
 
         # Simple block Matching
         if self._method == 'block_matching':
-            return self._compute_for_single_channel_image()
+            return self._block_matching_for_single_chanel_image()
 
         # Incorrect method
         raise ValueError('Calculation method is not correct')
