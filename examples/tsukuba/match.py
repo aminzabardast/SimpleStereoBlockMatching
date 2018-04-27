@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from SimpleBM.matching import BlockMatcher
+from time import time
 
 # Importing Images and converting to gray scale
 imgL = plt.imread('images/left.ppm')
@@ -8,13 +9,16 @@ imgL = np.dot(imgL[..., :], [.333, .333, .334])
 imgR = plt.imread('images/right.ppm')
 imgR = np.dot(imgR[..., :], [.333, .333, .334])
 
-# Disparity Template
-disparity_map = np.ndarray(shape=imgL.shape)
-
 # Running the algorithm
-matcher = BlockMatcher(left_image=imgL, right_image=imgR, disparity_range=16)
-disparity_map[:, :] = matcher.compute()
+matcher = BlockMatcher(imgL, imgR)
+
+# Computing main method + run time
+start_time = time()
+matcher.compute()
+end_time = time()
+print('Runtime is: {} s'.format(end_time-start_time))
 
 # Saving the image
-disparity_map[:, :] = disparity_map[:, :]/15
-plt.imsave('result.png', disparity_map)
+disparity_map = matcher.get_disparity()
+# disparity_map = disparity_map/15
+plt.imsave('result.png', disparity_map, cmap=plt.get_cmap('jet'))
