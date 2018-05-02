@@ -1,8 +1,8 @@
 import numpy as np
 
 
-class BlockMatcher:
-    def __init__(self, left_image, right_image, method='block_matching', **kwargs):
+class StereoMatcher:
+    def __init__(self, left_image, right_image, method='dynamic_programming', **kwargs):
         if left_image.shape != right_image.shape:
             raise IndexError('Left and Right images do not have the same dimensions.')
 
@@ -81,7 +81,7 @@ class BlockMatcher:
     @staticmethod
     def _mse(left_block, right_block):
         """Calculating 'Mean Squared Error"""
-        return np.sum(np.power(left_block - right_block, 2)) / left_block.shape[0]*left_block.shape[1]
+        return np.sum(np.power(left_block - right_block, 2))
 
     @staticmethod
     def _mae(left_block, right_block):
@@ -97,9 +97,102 @@ class BlockMatcher:
         # Simple block Matching
         if self._method == 'block_matching':
             return self._block_matching_for_single_chanel_image()
+        elif self._method == 'dynamic_programming':
+            return self._dynamic_programming_for_single_chanel_image()
 
         # Incorrect method
         raise ValueError('Calculation method is not correct')
 
     def get_disparity(self):
+        """Returning Disparity map"""
         return self._disparity_map if self._disparity_map.any() else False
+
+    def _dynamic_programming_for_single_chanel_image(self):
+
+        # Handling inputs and their defaults:
+        self._occlusion_penalty = self._kwargs['occlusion_penalty'] if 'occlusion_penalty' in self._kwargs.keys() else 0
+        self.show_occlusions = self._kwargs['show_occlusions'] if 'show_occlusions' in self._kwargs.keys() else False
+
+        # Sizing the images
+        rows, columns = self._left_image.shape
+
+        # Optimizing each row using Dynamic Programming
+        for i in range(0, rows-2):
+            # Creating optimization graph
+            self._create_matching_grid(columns)
+            # Optimizing
+            self._dp_cost(i, 2, 2)
+            self._disparity_map[i, :] = self._return_dp_shortest_path()
+        return True
+
+    def _create_matching_grid(self, length):
+        """Creating a numpy array as optimization graph"""
+        self._matching_grid = np.full(shape=(length, length), fill_value=np.inf)
+        return True
+
+    def _dp_cost(self, row, a, b):
+        """Calculating Stereo Matching cost graph"""
+
+        # Memoization for faster respond
+        if self._matching_grid[a, b] < np.inf:
+            return self._matching_grid[a, b]
+
+        # Base cases
+        # If last node have a direct connection
+        if a == self._right_image.shape[1]-3 and b == self._left_image.shape[1]-3:
+            self._matching_grid[a, b] = self._mse(self._right_image[row-2:row+2, a-2:a+2],
+                                                  self._left_image[row-2:row+2, b-2:b+2])
+        # If last node have a right connection
+        elif a == self._right_image.shape[1]-3:
+            self._matching_grid[a, b] = self._dp_cost(row, a, b+1) + self._occlusion_penalty + \
+                                        self._mse(self._right_image[row-2:row+2, a-2:a+2],
+                                                  self._left_image[row-2:row+2, b-2:b+2])
+        # If last node have a left connection
+        elif b == self._left_image.shape[1]-3:
+            self._matching_grid[a, b] = self._dp_cost(row, a+1, b) + self._occlusion_penalty + \
+                                        self._mse(self._right_image[row-2:row+2, a-2:a+2],
+                                                  self._left_image[row-2:row+2, b-2:b+2])
+        # Recursion
+        else:
+            self._matching_grid[a, b] = np.min([
+                self._dp_cost(row, a + 1, b + 1),
+                self._dp_cost(row, a, b + 1) + self._occlusion_penalty,
+                self._dp_cost(row, a + 1, b) + self._occlusion_penalty,
+            ]) + self._mse(self._right_image[row-2:row+2, a-2:a+2], self._left_image[row-2:row+2, b-2:b+2])
+        return self._matching_grid[a, b]
+
+    def _return_dp_shortest_path(self):
+        """Returning the shortest path in graph"""
+
+        # Starting from first pixel
+        i, j = 0, 0
+        shortest_path = []
+        while i < self._matching_grid.shape[0]-1 and j < self._matching_grid.shape[1]-1:
+            # Adding Node to shortest path list
+            shortest_path.append([i, j])
+            # Calculating next node
+            min_cost = np.min([
+                self._matching_grid[i+1, j+1],
+                self._matching_grid[i, j+1],
+                self._matching_grid[i+1, j]
+            ])
+            if min_cost == self._matching_grid[i+1, j+1]:
+                i += 1
+                j += 1
+            elif min_cost == self._matching_grid[i, j+1]:
+                j += 1
+            elif min_cost == self._matching_grid[i+1, j]:
+                i += 1
+        # Adding last node into path manually
+        shortest_path.append([self._matching_grid.shape[0]-1, self._matching_grid.shape[0]-1])
+
+        # Calculating disparity from shortest path
+        disparity = np.full(shape=(self._matching_grid.shape[0],), fill_value=np.nan)
+        temp = np.nan
+        for i, j in shortest_path:
+            if self.show_occlusions and temp == i:
+                continue
+            else:
+                disparity[j] = np.abs(i-j)
+                temp = i
+        return disparity
