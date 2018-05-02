@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from SimpleBM.matching import BlockMatcher
+from SimpleSM.matching import StereoMatcher
 from time import time
 
 # Importing Images and converting to gray scale
@@ -10,7 +10,7 @@ imgR = plt.imread('images/right.ppm')
 imgR = np.dot(imgR[..., :], [.333, .333, .334])
 
 # Running the algorithm
-matcher = BlockMatcher(imgL, imgR)
+matcher = StereoMatcher(imgL, imgR)
 
 # Computing main method + run time
 start_time = time()
