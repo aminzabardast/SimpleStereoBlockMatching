@@ -19,6 +19,5 @@ end_time = time()
 print('Runtime is: {} s'.format(end_time-start_time))
 
 # Saving the image
-disparity_map = matcher.get_disparity()
-# disparity_map = disparity_map/15
+disparity_map = matcher.get_disparity_image()
 plt.imsave('result.png', disparity_map, cmap=plt.get_cmap('jet'))
