@@ -104,13 +104,21 @@ class StereoMatcher:
         raise ValueError('Calculation method is not correct')
 
     def get_disparity(self):
-        """Returning Disparity map"""
+        """Returning Disparity matrix"""
         return self._disparity_map if self._disparity_map.any() else False
+
+    def get_disparity_image(self):
+        """Return Disparity suited for plotting"""
+        if not self._disparity_map.any():
+            return False
+        min_value = self._disparity_map[np.isnan(self._disparity_map) == False].min()-1
+        self._disparity_map[np.isnan(self._disparity_map) == True] = min_value
+        return self._disparity_map
 
     def _dynamic_programming_for_single_chanel_image(self):
 
         # Handling inputs and their defaults:
-        self._occlusion_penalty = self._kwargs['occlusion_penalty'] if 'occlusion_penalty' in self._kwargs.keys() else 0
+        self._occlusion_penalty = self._kwargs['occlusion_penalty'] if 'occlusion_penalty' in self._kwargs.keys() else 10
         self.show_occlusions = self._kwargs['show_occlusions'] if 'show_occlusions' in self._kwargs.keys() else False
 
         # Sizing the images
