@@ -24,8 +24,8 @@ class StereoMatcher:
 
         # Handling inputs and their defaults:
         # Defining the minimum and the maximum radius for kernel
-        min_radius = self._kwargs['min_block_size']//2 if 'min_block_size' in self._kwargs.keys() else 2
-        max_radius = self._kwargs['max_block_size']//2 if 'max_block_size' in self._kwargs.keys() else 10
+        min_radius = self._kwargs['min_block_size']//2 if 'min_block_size' in self._kwargs.keys() else 2  # 5
+        max_radius = self._kwargs['max_block_size']//2 if 'max_block_size' in self._kwargs.keys() else 15  # 31
         # Threshold for variance
         var_threshold = self._kwargs['var_threshold'] if 'var_threshold' in self._kwargs.keys() else 2
         # Disparity Range
@@ -58,7 +58,7 @@ class StereoMatcher:
                     if left_block.shape != right_block.shape:
                         break
                     # Calculating Error
-                    errors = np.append(errors, self._mse(left_block, right_block))
+                    errors = np.append(errors, self._SSD(left_block, right_block))
                 # Minimum Index
                 min_idx = int(np.where(errors == errors.min())[0][0])
                 # Interpolating the result with a parabola to gain sub-pixel accuracy.
@@ -79,14 +79,9 @@ class StereoMatcher:
         return img[x0:x1, y0:y1]
 
     @staticmethod
-    def _mse(left_block, right_block):
+    def _SSD(left_block, right_block):
         """Calculating 'Mean Squared Error"""
         return np.sum(np.power(left_block - right_block, 2))
-
-    @staticmethod
-    def _mae(left_block, right_block):
-        """Calculating 'Mean Absolute Error'"""
-        return np.sum(np.abs(left_block - right_block)) / left_block.shape[0]*left_block.shape[1]
 
     def compute(self):
         """Main Simple Block Matching Algorithm / Input images should be rectified"""
@@ -118,14 +113,14 @@ class StereoMatcher:
     def _dynamic_programming_for_single_chanel_image(self):
 
         # Handling inputs and their defaults:
-        self._occlusion_penalty = self._kwargs['occlusion_penalty'] if 'occlusion_penalty' in self._kwargs.keys() else 10
+        self._occlusion_penalty = self._kwargs['occlusion_penalty'] if 'occlusion_penalty' in self._kwargs.keys() else 0
         self.show_occlusions = self._kwargs['show_occlusions'] if 'show_occlusions' in self._kwargs.keys() else False
 
         # Sizing the images
         rows, columns = self._left_image.shape
 
         # Optimizing each row using Dynamic Programming
-        for i in range(0, rows-2):
+        for i in range(0, rows):
             # Creating optimization graph
             self._create_matching_grid(columns)
             # Optimizing
@@ -148,17 +143,17 @@ class StereoMatcher:
         # Base cases
         # If last node have a direct connection
         if a == self._right_image.shape[1]-3 and b == self._left_image.shape[1]-3:
-            self._matching_grid[a, b] = self._mse(self._right_image[row-2:row+2, a-2:a+2],
+            self._matching_grid[a, b] = self._SSD(self._right_image[row-2:row+2, a-2:a+2],
                                                   self._left_image[row-2:row+2, b-2:b+2])
         # If last node have a right connection
         elif a == self._right_image.shape[1]-3:
             self._matching_grid[a, b] = self._dp_cost(row, a, b+1) + self._occlusion_penalty + \
-                                        self._mse(self._right_image[row-2:row+2, a-2:a+2],
+                                        self._SSD(self._right_image[row-2:row+2, a-2:a+2],
                                                   self._left_image[row-2:row+2, b-2:b+2])
         # If last node have a left connection
         elif b == self._left_image.shape[1]-3:
             self._matching_grid[a, b] = self._dp_cost(row, a+1, b) + self._occlusion_penalty + \
-                                        self._mse(self._right_image[row-2:row+2, a-2:a+2],
+                                        self._SSD(self._right_image[row-2:row+2, a-2:a+2],
                                                   self._left_image[row-2:row+2, b-2:b+2])
         # Recursion
         else:
@@ -166,7 +161,7 @@ class StereoMatcher:
                 self._dp_cost(row, a + 1, b + 1),
                 self._dp_cost(row, a, b + 1) + self._occlusion_penalty,
                 self._dp_cost(row, a + 1, b) + self._occlusion_penalty,
-            ]) + self._mse(self._right_image[row-2:row+2, a-2:a+2], self._left_image[row-2:row+2, b-2:b+2])
+            ]) + self._SSD(self._right_image[row-2:row+2, a-2:a+2], self._left_image[row-2:row+2, b-2:b+2])
         return self._matching_grid[a, b]
 
     def _return_dp_shortest_path(self):
