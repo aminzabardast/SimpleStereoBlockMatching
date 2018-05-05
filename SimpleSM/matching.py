@@ -60,13 +60,7 @@ class StereoMatcher:
                     # Calculating Error
                     errors = np.append(errors, self._SSD(left_block, right_block))
                 # Minimum Index
-                min_idx = int(np.where(errors == errors.min())[0][0])
-                # Interpolating the result with a parabola to gain sub-pixel accuracy.
-                if min_idx == 0 or min_idx == len(errors)-1:
-                    self._disparity_map[i, j] = min_idx
-                else:
-                    self._disparity_map[i, j] = min_idx + 0.5 * (errors[min_idx-1]-errors[min_idx+1]) / \
-                        (errors[min_idx-1]-2*errors[min_idx]+errors[min_idx+1])
+                self._disparity_map[i, j] = int(np.where(errors == errors.min())[0][0])
         return True
 
     @staticmethod
