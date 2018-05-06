@@ -27,7 +27,7 @@ plt.imsave('dp.png', disparity_map, cmap=plt.get_cmap('jet'))
 
 # Block Matching
 # Running the algorithm
-matcher = StereoMatcher(imgL, imgR, method="block_matching")
+matcher = StereoMatcher(imgL, imgR, method="block_matching", max_block_size=5)
 
 # Computing main method + run time
 start_time = time()
