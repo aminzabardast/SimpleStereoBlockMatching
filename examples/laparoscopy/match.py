@@ -13,7 +13,7 @@ imgR = np.dot(imgR[..., :], [.333, .333, .334])
 
 # Dynamic Programming
 # Running the algorithm
-matcher = StereoMatcher(imgL, imgR, method="dynamic_programming", occlusion_penalty=0)
+matcher = StereoMatcher(imgL, imgR, method="dynamic_programming", occlusion_penalty=0, disparity_range=32)
 
 # Computing main method + run time
 start_time = time()
@@ -27,7 +27,7 @@ plt.imsave('dp.png', disparity_map, cmap=plt.get_cmap('jet'))
 
 # Block Matching
 # Running the algorithm
-matcher = StereoMatcher(imgL, imgR, method="block_matching", disparity_range=32, var_threshold=2, min_block_size=5, max_block_size=5)
+matcher = StereoMatcher(imgL, imgR, method="block_matching", disparity_range=32, kernel_size=5)
 
 # Computing main method + run time
 start_time = time()
