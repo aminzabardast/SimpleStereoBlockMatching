@@ -1,4 +1,5 @@
 import numpy as np
+from skimage.feature import match_template
 
 
 class StereoMatcher:
@@ -17,60 +18,49 @@ class StereoMatcher:
         self._right_image = right_image
 
         # Disparity
-        self._disparity_map = np.zeros(shape=self._left_image.shape)
+        self._disparity_map = np.full(shape=self._left_image.shape, fill_value=np.nan)
 
     def _block_matching_for_single_chanel_image(self):
         """Algorithm for single channel images"""
 
         # Handling inputs and their defaults:
         # Defining the minimum and the maximum radius for kernel
-        min_radius = self._kwargs['min_block_size']//2 if 'min_block_size' in self._kwargs.keys() else 2  # 5
-        max_radius = self._kwargs['max_block_size']//2 if 'max_block_size' in self._kwargs.keys() else 15  # 31
-        # Threshold for variance
-        var_threshold = self._kwargs['var_threshold'] if 'var_threshold' in self._kwargs.keys() else 2
+        kernel_radius = self._kwargs['kernel_size']//2 if 'kernel_size' in self._kwargs.keys() else 2  # 5
         # Disparity Range
         disparity_range = self._kwargs['disparity_range'] if 'disparity_range' in self._kwargs.keys() else 16
 
         # Left Image Dimensions
         rows, columns = self._left_image.shape
         # Iterating rows
-        for i in range(0, rows):
+        for i in range(kernel_radius, rows - kernel_radius):
             # Iterating Columns
-            for j in range(0, columns):
-                # Defining the minimum radius for kernel
-                local_min_radius = int(min_radius)
+            for j in range(disparity_range + kernel_radius, columns - kernel_radius):
                 # Extracting left block
                 # If the variance of pixels is lower than a threshold, then the radius of the kernel will be
                 # increased so more details get in the window.
                 # This is effective against homogeneous regions
-                left_block = self._extract_block(self._left_image, i, j, local_min_radius)
-                while left_block.var() < var_threshold and local_min_radius < max_radius:
-                    local_min_radius += 1
-                    left_block = self._extract_block(self._left_image, i, j, local_min_radius)
-                # Error Array
-                errors = np.ndarray(shape=(0,))
+                left_block = self._extract_block(self._left_image, i, j, kernel_radius)
                 # Searching for match in the right image
                 # The match will be in the left side of the current poisson
-                for k in range(j, j-disparity_range, -1):
-                    # Extracting right block
-                    right_block = self._extract_block(self._right_image, i, k, local_min_radius)
-                    # If the window sizes does not match, this means that we reached the end of the row
-                    if left_block.shape != right_block.shape:
-                        break
-                    # Calculating Error
-                    errors = np.append(errors, self._SSD(left_block, right_block))
-                # Minimum Index
-                self._disparity_map[i, j] = int(np.where(errors == errors.min())[0][0])
+                search_space = self._extract_row(self._right_image, i, j, kernel_radius, disparity_range)
+                # Calculating Max index in search space (Cross Correlation)
+                cross_correlation = match_template(image=search_space, template=left_block)
+                # Finding the max
+                max_idx = np.argmax(cross_correlation, axis=1)
+                cross_correlation = np.sort(cross_correlation, axis=1)[0]
+                # Calculating disparity
+                self._disparity_map[i, j] = disparity_range - max_idx - 1
         return True
 
     @staticmethod
     def _extract_block(img, i, j, radius):
         """Extracting a window from a image"""
-        x0 = 0 if i - radius < 0 else i - radius
-        x1 = img.shape[0] if i + radius >= img.shape[0] else i + radius + 1
-        y0 = 0 if j - radius < 0 else j - radius
-        y1 = img.shape[1] if j + radius >= img.shape[1] else j + radius + 1
-        return img[x0:x1, y0:y1]
+        return img[i - radius:i + radius + 1, j - radius:j + radius + 1]
+
+    @staticmethod
+    def _extract_row(img, i, j, radius, disparity):
+        """Extracting a window from a image"""
+        return img[i - radius:i + radius + 1, j - disparity - radius + 1:j + radius + 1]
 
     @staticmethod
     def _SSD(left_block, right_block):
@@ -108,7 +98,8 @@ class StereoMatcher:
 
         # Handling inputs and their defaults:
         self._occlusion_penalty = self._kwargs['occlusion_penalty'] if 'occlusion_penalty' in self._kwargs.keys() else 0
-        self.show_occlusions = self._kwargs['show_occlusions'] if 'show_occlusions' in self._kwargs.keys() else False
+        self._show_occlusions = self._kwargs['show_occlusions'] if 'show_occlusions' in self._kwargs.keys() else False
+        disparity_range = self._kwargs['disparity_range'] if 'disparity_range' in self._kwargs.keys() else 16
 
         # Sizing the images
         rows, columns = self._left_image.shape
@@ -117,9 +108,10 @@ class StereoMatcher:
         for i in range(0, rows):
             # Creating optimization graph
             self._create_matching_grid(columns)
-            # Optimizing
-            self._dp_cost(i, 2, 2)
-            self._disparity_map[i, :] = self._return_dp_shortest_path()
+            # Optimizing (Using recursion)
+            self._dp_cost(i, 0, 0, disparity_range)
+            # Calculating disparity information
+            self._disparity_map[i, :] = self._return_dp_shortest_path(0, 0)
         return True
 
     def _create_matching_grid(self, length):
@@ -127,8 +119,13 @@ class StereoMatcher:
         self._matching_grid = np.full(shape=(length, length), fill_value=np.inf)
         return True
 
-    def _dp_cost(self, row, a, b):
+    def _dp_cost(self, row, a, b, max_disparity):
         """Calculating Stereo Matching cost graph"""
+
+        # Not checking pixels further than disparity range
+        # This reduces complexity of the model
+        if np.abs(a-b) > max_disparity:
+            return np.inf
 
         # Memoization for faster respond
         if self._matching_grid[a, b] < np.inf:
@@ -136,33 +133,31 @@ class StereoMatcher:
 
         # Base cases
         # If last node have a direct connection
-        if a == self._right_image.shape[1]-3 and b == self._left_image.shape[1]-3:
-            self._matching_grid[a, b] = self._SSD(self._right_image[row-2:row+2, a-2:a+2],
-                                                  self._left_image[row-2:row+2, b-2:b+2])
+        if a == self._right_image.shape[1]-1 and b == self._left_image.shape[1]-1:
+            self._matching_grid[a, b] = self._SSD(self._right_image[row, a],
+                                                  self._left_image[row, b])
         # If last node have a right connection
-        elif a == self._right_image.shape[1]-3:
-            self._matching_grid[a, b] = self._dp_cost(row, a, b+1) + self._occlusion_penalty + \
-                                        self._SSD(self._right_image[row-2:row+2, a-2:a+2],
-                                                  self._left_image[row-2:row+2, b-2:b+2])
+        elif a == self._right_image.shape[1]-1:
+            self._matching_grid[a, b] = self._dp_cost(row, a, b+1, max_disparity) + self._occlusion_penalty + \
+                                        self._SSD(self._right_image[row, a],
+                                                  self._left_image[row, b])
         # If last node have a left connection
-        elif b == self._left_image.shape[1]-3:
-            self._matching_grid[a, b] = self._dp_cost(row, a+1, b) + self._occlusion_penalty + \
-                                        self._SSD(self._right_image[row-2:row+2, a-2:a+2],
-                                                  self._left_image[row-2:row+2, b-2:b+2])
+        elif b == self._left_image.shape[1]-1:
+            self._matching_grid[a, b] = self._dp_cost(row, a+1, b, max_disparity) + self._occlusion_penalty + \
+                                        self._SSD(self._right_image[row, a],
+                                                  self._left_image[row, b])
         # Recursion
         else:
             self._matching_grid[a, b] = np.min([
-                self._dp_cost(row, a + 1, b + 1),
-                self._dp_cost(row, a, b + 1) + self._occlusion_penalty,
-                self._dp_cost(row, a + 1, b) + self._occlusion_penalty,
-            ]) + self._SSD(self._right_image[row-2:row+2, a-2:a+2], self._left_image[row-2:row+2, b-2:b+2])
+                self._dp_cost(row, a + 1, b + 1, max_disparity),
+                self._dp_cost(row, a, b + 1, max_disparity) + self._occlusion_penalty,
+                self._dp_cost(row, a + 1, b, max_disparity) + self._occlusion_penalty,
+            ]) + self._SSD(self._right_image[row, a], self._left_image[row, b])
         return self._matching_grid[a, b]
 
-    def _return_dp_shortest_path(self):
+    def _return_dp_shortest_path(self, i, j):
         """Returning the shortest path in graph"""
 
-        # Starting from first pixel
-        i, j = 0, 0
         shortest_path = []
         while i < self._matching_grid.shape[0]-1 and j < self._matching_grid.shape[1]-1:
             # Adding Node to shortest path list
@@ -187,7 +182,7 @@ class StereoMatcher:
         disparity = np.full(shape=(self._matching_grid.shape[0],), fill_value=np.nan)
         temp = np.nan
         for i, j in shortest_path:
-            if self.show_occlusions and temp == i:
+            if self._show_occlusions and temp == i:
                 continue
             else:
                 disparity[j] = np.abs(i-j)
