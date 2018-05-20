@@ -63,7 +63,7 @@ class StereoMatcher:
         return img[i - radius:i + radius + 1, j - disparity - radius + 1:j + radius + 1]
 
     @staticmethod
-    def _SSD(left_block, right_block):
+    def _ssd(left_block, right_block):
         """Calculating 'Mean Squared Error"""
         return np.sum(np.power(left_block - right_block, 2))
 
@@ -134,17 +134,17 @@ class StereoMatcher:
         # Base cases
         # If last node have a direct connection
         if a == self._right_image.shape[1]-1 and b == self._left_image.shape[1]-1:
-            self._matching_grid[a, b] = self._SSD(self._right_image[row, a],
+            self._matching_grid[a, b] = self._ssd(self._right_image[row, a],
                                                   self._left_image[row, b])
         # If last node have a right connection
         elif a == self._right_image.shape[1]-1:
             self._matching_grid[a, b] = self._dp_cost(row, a, b+1, max_disparity) + self._occlusion_penalty + \
-                                        self._SSD(self._right_image[row, a],
+                                        self._ssd(self._right_image[row, a],
                                                   self._left_image[row, b])
         # If last node have a left connection
         elif b == self._left_image.shape[1]-1:
             self._matching_grid[a, b] = self._dp_cost(row, a+1, b, max_disparity) + self._occlusion_penalty + \
-                                        self._SSD(self._right_image[row, a],
+                                        self._ssd(self._right_image[row, a],
                                                   self._left_image[row, b])
         # Recursion
         else:
@@ -152,7 +152,7 @@ class StereoMatcher:
                 self._dp_cost(row, a + 1, b + 1, max_disparity),
                 self._dp_cost(row, a, b + 1, max_disparity) + self._occlusion_penalty,
                 self._dp_cost(row, a + 1, b, max_disparity) + self._occlusion_penalty,
-            ]) + self._SSD(self._right_image[row, a], self._left_image[row, b])
+            ]) + self._ssd(self._right_image[row, a], self._left_image[row, b])
         return self._matching_grid[a, b]
 
     def _return_dp_shortest_path(self, i, j):
